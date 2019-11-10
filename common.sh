@@ -6,6 +6,10 @@ function log() {
 	echo "--" "$@"
 }
 
+function error() {
+	echo "-- Error: " "$@" 1>&2
+}
+
 
 function mount_luks_img()  {
 	local ENCRYPTED_DISK_PATH="$1"		
@@ -78,10 +82,10 @@ function get_vm_pass() {
 	fi	
 }
 
-function normalize_mv_name  {
-	local VM_NAME=VM_NAME$(echo "$2" | sed "s/[^a-zA-Z0-9.]/-/g")
-	if [[ $(printf "$VM_NAME" | sed 's/[^.]//g' | wc -c) != "0"  ]]; then
-		log "Invalid vm name ${VM_NAME}. Must not contain just dots."
+function normalize_vm_name()  {
+	local VM_NAME=$(echo "$1" | sed "s/[^a-zA-Z0-9.]/-/g")
+	if [[ $(printf "$VM_NAME" | sed 's/[.]//g' | wc -c) = "0"  ]]; then
+		error "Invalid vm name ${VM_NAME}. Must not contain just dots."
 		exit 1
 	fi
 	echo "$VM_NAME"
