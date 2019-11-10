@@ -1,0 +1,31 @@
+#!/usr/bin/env bash
+
+set -eu 
+
+VM_NAME="$1"
+VM_PASS=$(get_vm_pass)
+
+# Check to see if the VM is running, do nothing if it is. 
+if ! virsh list --all | grep "$VM_NAME" | grep "shut off"; then
+	log "VM is already running."
+	exit 0
+fi
+
+#If vm is not running and is not encrypted, start it.
+if [[ -f ~/vms/"$VM_NAME".qcow2 ]]; then 
+	virsh start "$VM_NAME"
+	exit $?
+fi
+
+
+# If encrypted VM and LUKS mapper device file exists, start VM.
+if [[ -e /dev/mapper/"$VM_NAME" ]]; then
+	virsh start "$VM_NAME";
+	exit $?
+fi
+
+LUKS_MAPPER_DEVICE_NAME=$(get_disk_name_for_vm "$VM_NAME")
+ENCRYPTED_DISK_PATH=~/vms/encrypted/"$VM_NAME".img
+mount_luks_img "$ENCRYPTED_DISK_PATH" "$VM_NAME"
+
+virsh start "$VM_NAME"

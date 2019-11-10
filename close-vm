@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+
+# Start a VM. If the VM is encrypted, its LUKS container is mounted.
+
+set -eu
+source common.sh
+
+if [[ $# -ne 1 ]]; then
+	log "Usage: $0 vm-name"	
+	exit 1
+fi
+
+VM_NAME="$1"
+
+virsh shutdown "$VM_NAME" || true
+
+sleep 5;
+
+if ! virsh list --all | grep "$VM_NAME" | grep "shut off"; then
+	log "VM $VM_NAME failed to stop.";
+	exit 1
+fi
+
+virsh dumpxml "$VM_NAME" | grep mapper
+LUKS_DEV_MAPPER=$(virsh dumpxml "$VM_NAME" | grep mapper | cut -d "'"  -f2)
+sudo cryptsetup close "$LUKS_DEV_MAPPER"
+

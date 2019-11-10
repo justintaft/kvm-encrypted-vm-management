@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+
+set -eu
+source common.sh
+
+if [[ $# -ne 2 ]]; then
+  log "Clones vm."
+  log "Usage: $0 src-vm-name new-vm-name";
+  exit 1;
+fi
+
+#Get VM name
+SRC_VM=$(normalize_vm_name "$1")
+DEST_VM=$(normalize_vm_name "$2")
+
+virt-clone --original "$1"  --name "$2" --file ~/vms/"$DEST_VM".qcow2

@@ -1,0 +1,73 @@
+#!/usr/bin/env bash
+
+# Clone VM to new VM with encrypted disk file.
+# Unencrypted VM storage files are assumed to be stored in ~/vms/*.qcow2.
+# Encrypted VMs storage files will be stored in ~/vms/encrypted .
+
+# WARNING: File contents and encryption keys may reside in memory!
+# If keys must be cleared from memory, do not use this script.
+# Instead, consider using Secure Memory Encryption, Secure Encrypted Virulization,
+# and setup LUKS/Bitlocker INSIDE the VM.
+
+set -euo pipefile
+
+source common.sh
+
+if [ $# -lt 2 ]; then
+  echo "Clones existing template VM, creating encrypted disk for new vm."
+  echo "Usage: $0 src.vm.name dest.vm.name";
+  exit 1;
+fi
+
+SRC_VM="$1"
+DEST_VM="$2"
+DEST_DISK_NAME=$(echo "$DEST_VM" | sed "s/[^a-zA-Z0-9.]/-/g")
+
+
+# Check that the source VM exists
+if [[ ! -f ~/vms/"$SRC_VM".qcow2  ]]; then
+	log "Error: SRC Vm '$SRC_VM' not found."
+	exit
+fi
+
+
+# Create sparse file for LUKS container 
+ENCRYPTED_DISK_PATH=~/vms/encrypted/"$DEST_DISK_NAME".img
+if [[ -f "$ENCRYPTED_DISK_PATH" ]] ; then
+	log "Error, $ENCRYPTED_DISK_PATH already exists".
+	exit 1;
+fi
+truncate -s 101G "$ENCRYPTED_DISK_PATH"
+
+# Create loop device for sparse file, so LUKS can operate on it
+if ! LOOP_DEVICE=$(sudo losetup --show -f "$ENCRYPTED_DISK_PATH"); then
+	log "Failed to create loop device";
+	exit 1;
+fi
+sudo chown "$USER" "$LOOP_DEVICE"
+
+#Generate unique LUKS mapper name to mitigate the wrong 
+#LUKS container being used 
+#if ! DISK_DEVICE_UUID=$(uuidgen); then
+#	echo "Failed to generate UUID for disk name."
+#	exit
+#fi
+#LUKS_MAPPER_DEVICE_NAME="${DEST_DISK_NAME}-${DISK_DEVICE_UUID}";
+
+LUKS_MAPPER_DEVICE_NAME="${DEST_DISK_NAME}"
+if ! (echo "$VM_PASS" | sudo cryptsetup -q  luksFormat "$LOOP_DEVICE"); then
+	log "Failed to format $LOOP_DEVICE for luks."
+	exit 1;
+fi
+
+mount_luks_img "$ENCRYPTED_DISK_PATH" "$LUKS_MAPPER_DEVICE_NAME"
+
+# Clone SRC VM into encrypted LUKS container 
+
+log "Cloning vm..."
+if ! (virt-clone --original "$SRC_VM" --name "$DEST_DISK_NAME" --file "/dev/mapper/$LUKS_MAPPER_DEVICE_NAME" --check path_exists=off); then 
+	log "Failed to clone virtual machine."
+	exit 1
+fi
+
+log "VM $DEST_DISK_NAME created."
