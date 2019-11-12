@@ -2,8 +2,14 @@
 
 set -eu 
 
+source common.sh
+if [[ "$#" -ne 1 ]]; then 
+	log "Useage: $0 vm-name"
+	exit 1
+fi
+
+
 VM_NAME="$1"
-VM_PASS=$(get_vm_pass)
 
 # Check to see if the VM is running, do nothing if it is. 
 if ! virsh list --all | grep "$VM_NAME" | grep "shut off"; then
@@ -17,6 +23,8 @@ if [[ -f ~/vms/"$VM_NAME".qcow2 ]]; then
 	exit $?
 fi
 
+
+VM_PASS=$(get_vm_pass "$VM_NAME")
 
 # If encrypted VM and LUKS mapper device file exists, start VM.
 if [[ -e /dev/mapper/"$VM_NAME" ]]; then
