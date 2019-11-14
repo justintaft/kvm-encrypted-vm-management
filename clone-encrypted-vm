@@ -9,7 +9,7 @@
 # Instead, consider using Secure Memory Encryption, Secure Encrypted Virulization,
 # and setup LUKS/Bitlocker INSIDE the VM.
 
-set -euo pipefile
+set -eu
 
 source common.sh
 
@@ -20,7 +20,7 @@ if [ $# -lt 2 ]; then
 fi
 
 SRC_VM="$1"
-DEST_VM="$2"
+DEST_VM=$(normalize_vm_name "$2")
 DEST_DISK_NAME=$(echo "$DEST_VM" | sed "s/[^a-zA-Z0-9.]/-/g")
 
 
@@ -44,6 +44,8 @@ if ! LOOP_DEVICE=$(sudo losetup --show -f "$ENCRYPTED_DISK_PATH"); then
 	log "Failed to create loop device";
 	exit 1;
 fi
+
+log "Creating lopos device for Luks container, need sudo."
 sudo chown "$USER" "$LOOP_DEVICE"
 
 #Generate unique LUKS mapper name to mitigate the wrong 
@@ -55,6 +57,9 @@ sudo chown "$USER" "$LOOP_DEVICE"
 #LUKS_MAPPER_DEVICE_NAME="${DEST_DISK_NAME}-${DISK_DEVICE_UUID}";
 
 LUKS_MAPPER_DEVICE_NAME="${DEST_DISK_NAME}"
+
+
+VM_PASS=$(get_vm_pass $DEST_VM)
 if ! (echo "$VM_PASS" | sudo cryptsetup -q  luksFormat "$LOOP_DEVICE"); then
 	log "Failed to format $LOOP_DEVICE for luks."
 	exit 1;

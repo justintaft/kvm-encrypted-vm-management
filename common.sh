@@ -72,7 +72,7 @@ function get_vm_pass() {
 			exit 1
 		fi 
 	else 
-		log "Enter Password for VM $VM_NAME: " 
+		log "Enter Password for VM $VM_NAME: " 1>&2
 		IFS= read -rs VM_PASS
 		if [[ $? -ne 0 ]]; then
 			log "Failed to read password." 
